@@ -604,12 +604,15 @@ class PlayerManagementActivity : AppCompatActivity() {
     }
 
     // Draw 'n' players from the resting queue, prioritizing longest-resting players for fairness
+    // This ensures no player rests significantly longer than others (fair rotation)
     private fun drawFromRestingQueue(n: Int): List<Player> {
         val picked = mutableListOf<Player>()
         val times = min(n, restingPlayers.size)
         
         // Sort resting players by rest count (descending) for fair scheduling
         // Players with higher rest counts get priority to be selected
+        // This naturally prevents any player from resting more than ~2 completed games
+        // beyond others due to the priority selection
         val sortedRestingPlayers = restingPlayers.sortedByDescending { player ->
             restCount.getOrDefault(player.id, 0)
         }.toMutableList()
