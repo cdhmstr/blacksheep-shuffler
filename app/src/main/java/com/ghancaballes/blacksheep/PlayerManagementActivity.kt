@@ -35,6 +35,7 @@ class PlayerManagementActivity : AppCompatActivity() {
 
     // --- UI Elements ---
     private lateinit var titleTextView: TextView
+    private lateinit var syncBanner: TextView
 
     // Setup Views
     private lateinit var setupContainer: LinearLayout
@@ -117,6 +118,7 @@ class PlayerManagementActivity : AppCompatActivity() {
 
     private fun initializeUI() {
         titleTextView = findViewById(R.id.textViewTitle)
+        syncBanner = findViewById(R.id.textViewSyncBanner)
 
         // Setup Views
         setupContainer = findViewById(R.id.setupContainer)
@@ -210,6 +212,7 @@ class PlayerManagementActivity : AppCompatActivity() {
         restingPlayersTextView.visibility = View.GONE
         courtsRecyclerView.visibility = View.GONE
         gameActionButtons.visibility = View.GONE
+        hideSyncBanner()
 
         currentCourts.clear()
         restingPlayers.clear()
@@ -242,6 +245,7 @@ class PlayerManagementActivity : AppCompatActivity() {
         restingPlayersTextView.visibility = View.VISIBLE
         courtsRecyclerView.visibility = View.VISIBLE
         gameActionButtons.visibility = View.VISIBLE
+        hideSyncBanner()
 
         courtAdapter.notifyDataSetChanged()
         updateRestingPlayersView()
@@ -284,11 +288,23 @@ class PlayerManagementActivity : AppCompatActivity() {
     private fun onMatchRecordingFailed(courtIndex: Int) {
         // Re-enable winner buttons when match recording fails
         courtAdapter.reEnableWinnerButtons(courtIndex)
+        hideSyncBanner()
+    }
+
+    private fun showSyncBanner() {
+        syncBanner.visibility = View.VISIBLE
+    }
+
+    private fun hideSyncBanner() {
+        syncBanner.visibility = View.GONE
     }
 
     private fun recordMatchAndUpdatePlayerStats(winners: List<Player>, losers: List<Player>, courtIndex: Int) {
         val court = currentCourts[courtIndex]
         val courtNumber = court.courtNumber
+        
+        // Show sync banner to indicate pending write
+        showSyncBanner()
         
         // Generate deterministic match ID using per-court sequence
         val currentSequence = courtSequenceCounters.getOrDefault(courtNumber, 0) + 1
@@ -349,6 +365,7 @@ class PlayerManagementActivity : AppCompatActivity() {
         }.addOnSuccessListener {
             Log.d("PlayerStats", "Transaction successful: Match $matchId recorded and player stats updated.")
             Toast.makeText(this, "Winners recorded successfully!", Toast.LENGTH_SHORT).show()
+            hideSyncBanner()
             
             // Continue with normal game flow after successful recording
             continueGameFlowAfterMatch(winners, losers, courtIndex)
@@ -356,7 +373,7 @@ class PlayerManagementActivity : AppCompatActivity() {
             Log.e("PlayerStats", "Transaction failed for match $matchId.", e)
             Toast.makeText(this, "Failed to record match: ${e.message}", Toast.LENGTH_LONG).show()
             
-            // Re-enable winner buttons on failure
+            // Re-enable winner buttons on failure and hide sync banner
             onMatchRecordingFailed(courtIndex)
         }
     }
