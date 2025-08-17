@@ -6,13 +6,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 
 class CourtAdapter(
     private var courts: List<Court>,
     private val onWinnerSelected: (winners: List<Player>, losers: List<Player>, courtIndex: Int) -> Unit,
-    private val onEditCourtClicked: (courtIndex: Int) -> Unit
+    private val onEditCourtClicked: (courtIndex: Int) -> Unit,
+    private val onMatchRecordingFailed: (courtIndex: Int) -> Unit
 ) : RecyclerView.Adapter<CourtAdapter.CourtViewHolder>() {
 
     companion object {
@@ -35,6 +37,12 @@ class CourtAdapter(
     fun updateCourts(newCourts: List<Court>) {
         this.courts = newCourts
         notifyDataSetChanged()
+    }
+
+    fun reEnableWinnerButtons(courtIndex: Int) {
+        // Find the ViewHolder for the specific court and re-enable its buttons
+        // This will be called when match recording fails
+        notifyItemChanged(courtIndex)
     }
 
     inner class CourtViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -69,6 +77,10 @@ class CourtAdapter(
                 courtGrid.visibility = View.VISIBLE
                 emptyCourtMessage.visibility = View.GONE
 
+                // Always re-enable winner buttons on bind to avoid recycled views remaining disabled
+                buttonWinnerTeamA.isEnabled = true
+                buttonWinnerTeamB.isEnabled = true
+
                 // Map players to quadrants
                 val a1 = teamA[0]
                 val a2 = teamA[1]
@@ -86,14 +98,39 @@ class CourtAdapter(
                 setPlayerBackground(player3Name, b1)
                 setPlayerBackground(player4Name, b2)
 
-                // Set winner button listeners
-                buttonWinnerTeamA.setOnClickListener { onWinnerSelected(teamA, teamB, position) }
-                buttonWinnerTeamB.setOnClickListener { onWinnerSelected(teamB, teamA, position) }
+                // Set winner button listeners with confirmation dialog
+                buttonWinnerTeamA.setOnClickListener { showWinnerConfirmationDialog(teamA, teamB, position, "Team A") }
+                buttonWinnerTeamB.setOnClickListener { showWinnerConfirmationDialog(teamB, teamA, position, "Team B") }
             } else {
                 // Court is empty or not properly formed, hide the grid and show the message
                 courtGrid.visibility = View.GONE
                 emptyCourtMessage.visibility = View.VISIBLE
             }
+        }
+
+        private fun showWinnerConfirmationDialog(winners: List<Player>, losers: List<Player>, position: Int, teamName: String) {
+            val context = itemView.context
+            val winnerNames = winners.joinToString(" & ") { it.name }
+            val loserNames = losers.joinToString(" & ") { it.name }
+            
+            AlertDialog.Builder(context)
+                .setTitle("Confirm Winner")
+                .setMessage("Confirm $teamName ($winnerNames) won against ($loserNames)?")
+                .setPositiveButton("Confirm") { _, _ ->
+                    // Disable both buttons to guard against double taps
+                    buttonWinnerTeamA.isEnabled = false
+                    buttonWinnerTeamB.isEnabled = false
+                    
+                    // Call the winner selection callback
+                    onWinnerSelected(winners, losers, position)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        fun reEnableWinnerButtons() {
+            buttonWinnerTeamA.isEnabled = true
+            buttonWinnerTeamB.isEnabled = true
         }
 
         private fun setPlayerBackground(textView: TextView, player: Player) {
